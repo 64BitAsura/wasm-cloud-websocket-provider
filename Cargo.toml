@@ -1,0 +1,37 @@
+[package]
+name = "wasmcloud-provider-messaging-websocket"
+version = "0.1.0"
+description = """
+A capability provider that satisfies the 'wasmcloud:messaging' contract using WebSocket as a backend.
+"""
+authors = ["wasmCloud Team"]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/64BitAsura/wasm-cloud-websocket-provider"
+
+[badges.maintenance]
+status = "actively-developed"
+
+[dependencies]
+anyhow = "1.0"
+bytes = "1.5"
+futures = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.35", features = ["full"] }
+tokio-tungstenite = "0.21"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2.5"
+uuid = { version = "1.6", features = ["v4"] }
+wasmcloud-provider-sdk = "0.10"
+wit-bindgen = "0.24"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+
+[[bin]]
+name = "websocket-provider"
+path = "src/main.rs"
