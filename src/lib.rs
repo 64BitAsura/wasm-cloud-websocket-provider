@@ -22,6 +22,9 @@ use server::{start_server, ServerState};
 // Re-export for main binary
 pub use connection::ConnectionConfig as WsConnectionConfig;
 
+/// Type alias for message handler callback
+type MessageHandler = Arc<dyn Fn(String, BrokerMessage) -> Result<()> + Send + Sync>;
+
 /// Message type for internal communication
 #[derive(Debug, Clone)]
 pub struct BrokerMessage {
@@ -69,6 +72,8 @@ pub struct WebSocketMessagingProvider {
     server_handle: Arc<RwLock<Option<JoinHandle<Result<()>>>>>,
     /// Server address when running in server mode
     server_addr: Arc<RwLock<Option<SocketAddr>>>,
+    /// Message handler for broadcasting messages from remote WS server to components (client mode)
+    client_message_handler: Arc<RwLock<Option<MessageHandler>>>,
 }
 
 impl Default for WebSocketMessagingProvider {
@@ -81,6 +86,7 @@ impl Default for WebSocketMessagingProvider {
             server_state: None,
             server_handle: Arc::new(RwLock::new(None)),
             server_addr: Arc::new(RwLock::new(None)),
+            client_message_handler: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -187,6 +193,101 @@ impl WebSocketMessagingProvider {
         Ok(AxumMessage::Text(json.to_string()))
     }
 
+    /// Set message handler for client mode - receives messages from remote WS server
+    pub async fn set_client_message_handler<F>(&self, handler: F)
+    where
+        F: Fn(String, BrokerMessage) -> Result<()> + Send + Sync + 'static,
+    {
+        let mut h = self.client_message_handler.write().await;
+        *h = Some(Arc::new(handler));
+        info!("Client message handler registered");
+    }
+
+    /// Broadcast message to all handler components (called when message arrives from remote WS server)
+    #[allow(dead_code)]
+    async fn broadcast_to_handlers(&self, session_id: &str, msg: BrokerMessage) -> Result<()> {
+        let handlers = self.handler_components.read().await;
+
+        if handlers.is_empty() {
+            debug!("No handler components registered to receive messages");
+            return Ok(());
+        }
+
+        let encoded_msg = self.encode_message(&msg)?;
+        let mut broadcast_count = 0;
+
+        for (component_id, bundle) in handlers.iter() {
+            if let Err(e) = bundle.tx.send(encoded_msg.clone()) {
+                error!(
+                    "Failed to broadcast message to component {}: {}",
+                    component_id, e
+                );
+            } else {
+                broadcast_count += 1;
+                debug!("Broadcasted message to component {}", component_id);
+            }
+        }
+
+        info!(
+            "Broadcasted message from session {} to {} handler components",
+            session_id, broadcast_count
+        );
+        Ok(())
+    }
+
+    /// Parse incoming message from remote WebSocket server (static version for async tasks)
+    pub fn parse_message_static(text: &str, session_id: &str) -> Result<BrokerMessage> {
+        // Try to parse as JSON first
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(text) {
+            let subject = json
+                .get("subject")
+                .and_then(|v| v.as_str())
+                .unwrap_or("default")
+                .to_string();
+
+            let body = if let Some(body_str) = json.get("body").and_then(|v| v.as_str()) {
+                Bytes::from(body_str.as_bytes().to_vec())
+            } else if let Some(body_arr) = json.get("body").and_then(|v| v.as_array()) {
+                let bytes: Vec<u8> = body_arr
+                    .iter()
+                    .filter_map(|v| v.as_u64().map(|n| n as u8))
+                    .collect();
+                Bytes::from(bytes)
+            } else {
+                Bytes::from(text.as_bytes().to_vec())
+            };
+
+            let reply_to = json
+                .get("reply_to")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .or_else(|| Some(session_id.to_string()));
+
+            Ok(BrokerMessage {
+                subject,
+                body,
+                reply_to,
+            })
+        } else {
+            // Plain text message
+            Ok(BrokerMessage {
+                subject: "message".to_string(),
+                body: Bytes::from(text.as_bytes().to_vec()),
+                reply_to: Some(session_id.to_string()),
+            })
+        }
+    }
+
+    /// Encode message (static version for async tasks)
+    pub fn encode_message_static(msg: &BrokerMessage) -> Result<Message> {
+        let json = serde_json::json!({
+            "subject": msg.subject,
+            "body": base64::encode(&msg.body),
+            "reply_to": msg.reply_to,
+        });
+        Ok(Message::Text(json.to_string()))
+    }
+
     /// Connect to a WebSocket server
     #[instrument(skip(self, config))]
     async fn connect(
@@ -238,6 +339,9 @@ impl WebSocketMessagingProvider {
         // Spawn task to handle bidirectional communication
         let component_id = component_id.to_string();
         let session_storage = Arc::clone(&self.session_storage);
+        let handler_components = Arc::clone(&self.handler_components);
+        let session_id_for_handler = session_id.clone();
+
         let handle = tokio::spawn(async move {
             loop {
                 tokio::select! {
@@ -248,17 +352,66 @@ impl WebSocketMessagingProvider {
                             break;
                         }
                     }
-                    // Handle incoming messages
+                    // Handle incoming messages from remote WebSocket server
                     Some(msg_result) = ws_rx.next() => {
                         match msg_result {
                             Ok(Message::Text(text)) => {
-                                debug!("Received text message: {}", text);
-                                // Handle incoming text message
-                                // In a full implementation, this would invoke the handler
+                                debug!("Received text message from remote server: {}", text);
+
+                                // Parse the message
+                                if let Ok(broker_msg) = Self::parse_message_static(&text, &session_id_for_handler) {
+                                    // Broadcast to all handler components
+                                    let handlers = handler_components.read().await;
+                                    for (comp_id, bundle) in handlers.iter() {
+                                        let encoded = Self::encode_message_static(&broker_msg);
+                                        if let Ok(msg) = encoded {
+                                            if let Err(e) = bundle.tx.send(msg) {
+                                                error!("Failed to forward message to component {}: {}", comp_id, e);
+                                            } else {
+                                                debug!("Forwarded message to component {}", comp_id);
+                                            }
+                                        }
+                                    }
+                                }
                             }
                             Ok(Message::Binary(data)) => {
-                                debug!("Received binary message: {} bytes", data.len());
-                                // Handle incoming binary message
+                                debug!("Received binary message from remote server: {} bytes", data.len());
+
+                                // Try to convert to text and parse
+                                if let Ok(text) = String::from_utf8(data.clone()) {
+                                    if let Ok(broker_msg) = Self::parse_message_static(&text, &session_id_for_handler) {
+                                        let handlers = handler_components.read().await;
+                                        for (comp_id, bundle) in handlers.iter() {
+                                            let encoded = Self::encode_message_static(&broker_msg);
+                                            if let Ok(msg) = encoded {
+                                                if let Err(e) = bundle.tx.send(msg) {
+                                                    error!("Failed to forward message to component {}: {}", comp_id, e);
+                                                } else {
+                                                    debug!("Forwarded message to component {}", comp_id);
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // Handle as raw binary
+                                    let broker_msg = BrokerMessage {
+                                        subject: "binary.message".to_string(),
+                                        body: Bytes::from(data),
+                                        reply_to: Some(session_id_for_handler.clone()),
+                                    };
+
+                                    let handlers = handler_components.read().await;
+                                    for (comp_id, bundle) in handlers.iter() {
+                                        let encoded = Self::encode_message_static(&broker_msg);
+                                        if let Ok(msg) = encoded {
+                                            if let Err(e) = bundle.tx.send(msg) {
+                                                error!("Failed to forward message to component {}: {}", comp_id, e);
+                                            } else {
+                                                debug!("Forwarded binary message to component {}", comp_id);
+                                            }
+                                        }
+                                    }
+                                }
                             }
                             Ok(Message::Close(_)) => {
                                 info!("WebSocket connection closed");

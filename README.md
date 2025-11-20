@@ -8,6 +8,8 @@ A wasmCloud capability provider that implements the `wasmcloud:messaging` contra
 - **WebSocket Communication**: Connect to WebSocket servers (ws:// or wss://)
 - **Session Management**: Track and manage individual WebSocket sessions
 - **Bidirectional Communication**: Handle both incoming and outgoing messages
+- **Message Broadcasting**: Receive messages from remote server and broadcast to handler components 🆕
+- **Component Reply-Back**: Components can reply to remote server using session IDs 🆕
 - **Authentication Support**: Optional token-based authentication
 - **Custom Headers**: Support for custom headers in WebSocket upgrade requests
 
@@ -42,7 +44,7 @@ The provider can be configured using the following settings when establishing a 
 
 ### Client Mode (Default)
 
-Connect to an external WebSocket server:
+Connect to an external WebSocket server and enable bidirectional communication:
 
 ```rust
 let mut config = HashMap::new();
@@ -50,6 +52,18 @@ config.insert("MODE".to_string(), "client".to_string());
 config.insert("URI".to_string(), "ws://example.com:8080".to_string());
 
 let provider = WebSocketMessagingProvider::from_config(config)?;
+
+// Link consumer component (to send messages)
+provider.receive_link_config_as_target("consumer-id", HashMap::new()).await?;
+
+// Link handler component (to receive messages from remote server) 🆕
+provider.receive_link_config_as_source("handler-id", HashMap::new()).await?;
+
+// Consumer can send messages to remote server
+provider.publish("consumer-id", message).await?;
+
+// Handler components automatically receive messages from remote server
+// Components can reply back using session ID from reply-to field
 ```
 
 ### Server Mode (New!) 🆕
@@ -80,6 +94,11 @@ cargo build --release
 cargo run --example basic_usage
 ```
 
+#### Client Mode with Broadcasting 🆕
+```bash
+cargo run --example client_broadcast
+```
+
 #### Server Mode
 ```bash
 cargo run --example server_mode
@@ -97,7 +116,41 @@ cargo test
 
 When session tracking is enabled (default), the provider maintains a mapping of session IDs to component IDs for WebSocket client connections.
 
-### Server Mode Sessions (New!) 🆕
+#### Client Mode Message Broadcasting 🆕
+
+In client mode, when the provider connects to a remote WebSocket server, it can broadcast incoming messages from that server to all registered handler components:
+
+```rust
+// Provider connects to remote WebSocket server
+let provider = WebSocketMessagingProvider::from_config(config)?;
+
+// Link consumer (sends messages to remote server)
+provider.receive_link_config_as_target("consumer-id", HashMap::new()).await?;
+
+// Link handler(s) (receive messages from remote server)
+provider.receive_link_config_as_source("handler-1", HashMap::new()).await?;
+provider.receive_link_config_as_source("handler-2", HashMap::new()).await?;
+
+// Consumer sends message to remote server
+provider.publish("consumer-id", message).await?;
+
+// Remote server responds → message is broadcast to ALL handler components
+// handler-1 and handler-2 both receive the message
+
+// Handlers can reply back to remote server using session ID
+let sessions = provider.list_sessions().await;
+if let Some((session_id, _)) = sessions.first() {
+    provider.send_to_session(session_id, reply_message).await?;
+}
+```
+
+**Key Features:**
+- Messages from remote WebSocket server are automatically broadcast to all handler components
+- Components can reply to remote server using session ID from reply-to field
+- Supports both JSON and binary message formats
+- Multiple handlers can process the same message independently
+
+### Server Mode Sessions
 
 In server mode, the provider tracks all connected WebSocket clients:
 
