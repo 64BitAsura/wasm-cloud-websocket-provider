@@ -3,14 +3,30 @@ use std::collections::HashMap;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+/// Connection mode for the provider
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ConnectionMode {
+    /// Act as WebSocket client (connect to a server)
+    #[default]
+    Client,
+    /// Act as WebSocket server (accept incoming connections)
+    Server,
+}
+
 /// Configuration for WebSocket connections
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ConnectionConfig {
-    /// WebSocket server URI (e.g., "ws://localhost:8080" or "wss://example.com/ws")
+    /// Connection mode: client or server
+    #[serde(default)]
+    pub mode: ConnectionMode,
+
+    /// WebSocket server URI for client mode (e.g., "ws://localhost:8080" or "wss://example.com/ws")
+    /// Or bind address for server mode (e.g., "0.0.0.0:8080")
     #[serde(default = "default_uri")]
     pub uri: String,
 
-    /// Optional authentication token to send with connection
+    /// Optional authentication token to send with connection (client mode)
     #[serde(default)]
     pub auth_token: Option<String>,
 
@@ -22,7 +38,7 @@ pub struct ConnectionConfig {
     #[serde(default = "default_session_tracking")]
     pub enable_session_tracking: bool,
 
-    /// Custom headers to send with WebSocket upgrade request
+    /// Custom headers to send with WebSocket upgrade request (client mode)
     #[serde(default)]
     pub custom_headers: HashMap<String, String>,
 }
@@ -42,6 +58,15 @@ fn default_session_tracking() -> bool {
 impl ConnectionConfig {
     /// Create a ConnectionConfig from a HashMap of configuration values
     pub fn from_map(config: &HashMap<String, String>) -> Result<Self> {
+        let mode = config
+            .get("MODE")
+            .and_then(|s| match s.to_lowercase().as_str() {
+                "server" => Some(ConnectionMode::Server),
+                "client" => Some(ConnectionMode::Client),
+                _ => None,
+            })
+            .unwrap_or_default();
+
         let uri = config.get("URI").cloned().unwrap_or_else(default_uri);
 
         let auth_token = config.get("AUTH_TOKEN").cloned();
@@ -65,6 +90,7 @@ impl ConnectionConfig {
         }
 
         Ok(ConnectionConfig {
+            mode,
             uri,
             auth_token,
             connect_timeout_sec,
@@ -79,6 +105,11 @@ impl ConnectionConfig {
         custom_headers.extend(other.custom_headers.clone());
 
         ConnectionConfig {
+            mode: if other.mode != ConnectionMode::default() {
+                other.mode.clone()
+            } else {
+                self.mode.clone()
+            },
             uri: if other.uri != default_uri() {
                 other.uri.clone()
             } else {
@@ -106,12 +137,14 @@ mod tests {
         assert_eq!(config.uri, "ws://127.0.0.1:8080");
         assert_eq!(config.connect_timeout_sec, 30);
         assert!(config.enable_session_tracking);
+        assert_eq!(config.mode, ConnectionMode::Client);
     }
 
     #[test]
     fn test_from_map_custom() {
         let mut map = HashMap::new();
-        map.insert("URI".to_string(), "wss://example.com/ws".to_string());
+        map.insert("MODE".to_string(), "server".to_string());
+        map.insert("URI".to_string(), "0.0.0.0:9090".to_string());
         map.insert("AUTH_TOKEN".to_string(), "secret123".to_string());
         map.insert("CONNECT_TIMEOUT_SEC".to_string(), "60".to_string());
         map.insert(
@@ -120,7 +153,8 @@ mod tests {
         );
 
         let config = ConnectionConfig::from_map(&map).unwrap();
-        assert_eq!(config.uri, "wss://example.com/ws");
+        assert_eq!(config.mode, ConnectionMode::Server);
+        assert_eq!(config.uri, "0.0.0.0:9090");
         assert_eq!(config.auth_token, Some("secret123".to_string()));
         assert_eq!(config.connect_timeout_sec, 60);
         assert_eq!(
@@ -132,6 +166,7 @@ mod tests {
     #[test]
     fn test_merge() {
         let config1 = ConnectionConfig {
+            mode: ConnectionMode::Client,
             uri: "ws://localhost:8080".to_string(),
             auth_token: Some("token1".to_string()),
             connect_timeout_sec: 30,
@@ -140,7 +175,8 @@ mod tests {
         };
 
         let config2 = ConnectionConfig {
-            uri: "wss://example.com".to_string(),
+            mode: ConnectionMode::Server,
+            uri: "0.0.0.0:9090".to_string(),
             auth_token: None,
             connect_timeout_sec: 60,
             enable_session_tracking: false,
@@ -148,7 +184,8 @@ mod tests {
         };
 
         let merged = config1.merge(&config2);
-        assert_eq!(merged.uri, "wss://example.com");
+        assert_eq!(merged.mode, ConnectionMode::Server);
+        assert_eq!(merged.uri, "0.0.0.0:9090");
         assert_eq!(merged.auth_token, Some("token1".to_string()));
         assert_eq!(merged.connect_timeout_sec, 60);
         assert!(!merged.enable_session_tracking);
