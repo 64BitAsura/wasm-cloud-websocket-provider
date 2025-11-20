@@ -9,7 +9,9 @@ use tracing_subscriber;
 use wasmcloud_provider_messaging_websocket::{BrokerMessage, WebSocketMessagingProvider};
 
 /// Test client mode message broadcasting from remote WS server to handler components
+/// Note: This test requires network access to echo.websocket.org
 #[tokio::test]
+#[ignore = "requires network access to external server"]
 async fn test_client_mode_broadcast_to_handlers() -> Result<()> {
     let _ = tracing_subscriber::fmt().with_test_writer().try_init();
 
@@ -60,7 +62,9 @@ async fn test_client_mode_broadcast_to_handlers() -> Result<()> {
 }
 
 /// Test that components can send replies back to remote server using session ID
+/// Note: This test requires network access to echo.websocket.org
 #[tokio::test]
+#[ignore = "requires network access to external server"]
 async fn test_component_reply_to_remote_server() -> Result<()> {
     let _ = tracing_subscriber::fmt().with_test_writer().try_init();
 
@@ -158,7 +162,9 @@ async fn test_message_encoding() -> Result<()> {
 }
 
 /// Test multiple handler components receiving broadcast
+/// Note: This test requires network access to echo.websocket.org
 #[tokio::test]
+#[ignore = "requires network access to external server"]
 async fn test_multiple_handlers_broadcast() -> Result<()> {
     let _ = tracing_subscriber::fmt().with_test_writer().try_init();
 
@@ -204,7 +210,9 @@ async fn test_multiple_handlers_broadcast() -> Result<()> {
 }
 
 /// Test client mode with session tracking enabled/disabled
+/// Note: This test requires network access to echo.websocket.org
 #[tokio::test]
+#[ignore = "requires network access to external server"]
 async fn test_client_session_tracking() -> Result<()> {
     let _ = tracing_subscriber::fmt().with_test_writer().try_init();
 

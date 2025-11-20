@@ -106,9 +106,17 @@ cargo run --example server_mode
 
 ### Testing
 
+Run the test suite:
 ```bash
 cargo test
 ```
+
+To run tests that require network access (ignored by default in CI):
+```bash
+cargo test -- --ignored
+```
+
+**Note:** Some integration tests connect to external WebSocket servers and are marked as `#[ignore]` to prevent CI failures. These tests validate real-world network scenarios but are not required for standard development.
 
 ## Session Management
 
