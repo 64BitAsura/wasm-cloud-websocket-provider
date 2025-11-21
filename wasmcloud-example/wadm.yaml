@@ -1,0 +1,48 @@
+apiVersion: core.oam.dev/v1beta1
+kind: Application
+metadata:
+  name: websocket-echo-example
+  annotations:
+    version: v0.1.0
+    description: "Example wasmCloud application using WebSocket messaging provider"
+spec:
+  components:
+    - name: echo-component
+      type: component
+      properties:
+        # Path to the compiled WebAssembly component
+        # Build with: cd echo-component && cargo build --target wasm32-wasip1 --release
+        image: file://./echo-component/target/wasm32-wasip1/release/echo_component.wasm
+      traits:
+        # Scale to 1 instance
+        - type: spreadscaler
+          properties:
+            instances: 1
+
+    - name: websocket-provider
+      type: capability
+      properties:
+        # NOTE: This provider is not yet published to a registry
+        # For local testing, you need to:
+        # 1. Build the provider: cargo build --release
+        # 2. Start it manually, OR
+        # 3. Package and register it with wasmCloud
+        # Once published, this would be something like:
+        # image: ghcr.io/64bitasura/websocket-provider:0.1.0
+        
+        # For now, this manifest is a template showing how to configure links
+        # See README.md for instructions on running the provider locally
+        image: file://../target/release/websocket-provider
+      traits:
+        - type: link
+          properties:
+            target: echo-component
+            namespace: wasmcloud
+            package: messaging
+            interfaces: [handler]
+            target_config:
+              - name: websocket-link-config
+                properties:
+                  MODE: "server"
+                  URI: "0.0.0.0:8080"
+                  ENABLE_SESSION_TRACKING: "true"
