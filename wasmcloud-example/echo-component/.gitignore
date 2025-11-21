@@ -1,0 +1,14 @@
+# Rust build artifacts
+target/
+Cargo.lock
+
+# wasmCloud build artifacts
+build/
+*.wasm
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

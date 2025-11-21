@@ -1,0 +1,47 @@
+apiVersion: core.oam.dev/v1beta1
+kind: Application
+metadata:
+  name: websocket-echo-example
+  annotations:
+    version: v0.1.0
+    description: "Example wasmCloud application using WebSocket messaging provider"
+spec:
+  components:
+    - name: echo-component
+      type: component
+      properties:
+        image: file://./echo-component/build/echo_component_s.wasm
+      traits:
+        # Link this component to the WebSocket provider to receive messages
+        - type: spreadscaler
+          properties:
+            instances: 1
+        - type: link
+          properties:
+            target: websocket-provider
+            namespace: wasmcloud
+            package: messaging
+            interfaces: [handler]
+            source_config:
+              - name: websocket-link-config
+                
+    - name: websocket-provider
+      type: capability
+      properties:
+        image: ghcr.io/wasmcloud/messaging-nats:0.23.1
+        # For local testing, we'll use the actual websocket provider binary
+        # In production, this would be published to a registry
+        # image: file://./target/release/websocket-provider
+      traits:
+        - type: link
+          properties:
+            target: echo-component
+            namespace: wasmcloud
+            package: messaging
+            interfaces: [consumer]
+            target_config:
+              - name: websocket-link-config
+                properties:
+                  MODE: "server"
+                  URI: "0.0.0.0:8080"
+                  ENABLE_SESSION_TRACKING: "true"
