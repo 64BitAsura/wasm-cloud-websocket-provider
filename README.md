@@ -40,6 +40,21 @@ The provider can be configured using the following settings when establishing a 
 | `ENABLE_SESSION_TRACKING` | Enable session tracking for targeted messaging | `true` | Both |
 | `HEADER_<name>` | Custom headers (e.g., `HEADER_Authorization`) | None | Client |
 
+## Quick Start
+
+### Try the wasmCloud Example 🆕
+
+See a complete working example with a wasmCloud component:
+
+```bash
+cd wasmcloud-example
+./test-local.sh
+```
+
+For detailed instructions, see:
+- **[wasmcloud-example/QUICKSTART.md](wasmcloud-example/QUICKSTART.md)** - Quick local testing guide
+- **[wasmcloud-example/README.md](wasmcloud-example/README.md)** - Full wasmCloud deployment guide
+
 ## Usage
 
 ### Client Mode (Default)
@@ -100,17 +115,30 @@ wasmcloud-provider-messaging-websocket = { git = "https://github.com/64BitAsura/
 
 ### Running
 
-#### Client Mode (Default)
+#### wasmCloud Example (Recommended) 🆕
+
+To see the provider in action with a real wasmCloud component:
+
+```bash
+cd wasmcloud-example
+./test-local.sh
+```
+
+See [wasmcloud-example/README.md](wasmcloud-example/README.md) for complete wasmCloud integration guide, or [wasmcloud-example/QUICKSTART.md](wasmcloud-example/QUICKSTART.md) for a quick local test.
+
+#### Standalone Examples
+
+##### Client Mode (Default)
 ```bash
 cargo run --example basic_usage
 ```
 
-#### Client Mode with Broadcasting 🆕
+##### Client Mode with Broadcasting
 ```bash
 cargo run --example client_broadcast
 ```
 
-#### Server Mode
+##### Server Mode
 ```bash
 cargo run --example server_mode
 ```
