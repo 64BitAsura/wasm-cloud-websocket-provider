@@ -4,20 +4,30 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 echo "================================================"
 echo "WebSocket Provider Local Test"
 echo "================================================"
 echo ""
 
-# Check if the provider is built
-if [ ! -f "../target/release/websocket-provider" ]; then
+# Check if the provider binary exists
+PROVIDER_BIN="$REPO_ROOT/target/release/websocket-provider"
+if [ ! -f "$PROVIDER_BIN" ]; then
     echo "Building WebSocket provider..."
-    cd ..
+    cd "$REPO_ROOT"
     cargo build --release
-    cd wasmcloud-example
     echo "✓ Provider built successfully"
 else
-    echo "✓ Provider binary found"
+    echo "✓ Provider binary found at: $PROVIDER_BIN"
+fi
+
+# Check if server_mode example exists
+SERVER_EXAMPLE="$REPO_ROOT/examples/server_mode.rs"
+if [ ! -f "$SERVER_EXAMPLE" ]; then
+    echo "Error: server_mode example not found at $SERVER_EXAMPLE"
+    exit 1
 fi
 
 echo ""
@@ -33,5 +43,5 @@ echo "Press Ctrl+C to stop the provider"
 echo ""
 
 # Run the server mode example
-cd ..
+cd "$REPO_ROOT"
 cargo run --example server_mode
