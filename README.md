@@ -87,6 +87,17 @@ provider.start_server_if_needed().await?;
 cargo build --release
 ```
 
+### Installation
+
+Pre-built packages are available from [GitHub Releases](https://github.com/64BitAsura/wasm-cloud-websocket-provider/releases). Each release includes the packaged `.crate` file that can be used for distribution.
+
+To use this provider as a dependency in your project, add it to your `Cargo.toml`:
+
+```toml
+[dependencies]
+wasmcloud-provider-messaging-websocket = { git = "https://github.com/64BitAsura/wasm-cloud-websocket-provider", tag = "v0.1.0" }
+```
+
 ### Running
 
 #### Client Mode (Default)
