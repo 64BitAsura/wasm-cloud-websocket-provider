@@ -42,9 +42,12 @@ The provider can be configured using the following settings when establishing a 
 
 ## Quick Start
 
-### Try the wasmCloud Example 🆕
+### Try the wasmCloud Examples 🆕
 
-See a complete working example with a wasmCloud component:
+See complete working examples with wasmCloud components:
+
+#### Server Mode Example
+Provider accepts incoming WebSocket connections:
 
 ```bash
 cd wasmcloud-example
@@ -54,6 +57,18 @@ cd wasmcloud-example
 For detailed instructions, see:
 - **[wasmcloud-example/QUICKSTART.md](wasmcloud-example/QUICKSTART.md)** - Quick local testing guide
 - **[wasmcloud-example/README.md](wasmcloud-example/README.md)** - Full wasmCloud deployment guide
+
+#### Client Mode Example 🆕
+Provider connects to external WebSocket servers:
+
+```bash
+cd wasmcloud-example-client
+./test-local.sh
+```
+
+For detailed instructions, see:
+- **[wasmcloud-example-client/QUICKSTART.md](wasmcloud-example-client/QUICKSTART.md)** - Quick local testing guide
+- **[wasmcloud-example-client/README.md](wasmcloud-example-client/README.md)** - Full wasmCloud deployment guide
 
 ## Usage
 
@@ -115,16 +130,25 @@ wasmcloud-provider-messaging-websocket = { git = "https://github.com/64BitAsura/
 
 ### Running
 
-#### wasmCloud Example (Recommended) 🆕
+#### wasmCloud Examples (Recommended) 🆕
 
-To see the provider in action with a real wasmCloud component:
+To see the provider in action with real wasmCloud components:
 
+**Server Mode** - Provider accepts WebSocket connections:
 ```bash
 cd wasmcloud-example
 ./test-local.sh
 ```
 
-See [wasmcloud-example/README.md](wasmcloud-example/README.md) for complete wasmCloud integration guide, or [wasmcloud-example/QUICKSTART.md](wasmcloud-example/QUICKSTART.md) for a quick local test.
+**Client Mode** - Provider connects to WebSocket servers:
+```bash
+cd wasmcloud-example-client
+./test-local.sh
+```
+
+See respective README.md files for complete wasmCloud integration guides:
+- [wasmcloud-example/README.md](wasmcloud-example/README.md) - Server mode guide
+- [wasmcloud-example-client/README.md](wasmcloud-example-client/README.md) - Client mode guide
 
 #### Standalone Examples
 
