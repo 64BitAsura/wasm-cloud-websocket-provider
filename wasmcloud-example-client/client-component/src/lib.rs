@@ -6,6 +6,9 @@ wit_bindgen::generate!({
 use exports::wasmcloud::messaging::handler::{Guest, BrokerMessage as HandlerMessage};
 use wasmcloud::messaging::consumer::{publish, BrokerMessage as ConsumerMessage};
 
+// Response subject prefix
+const RESPONSE_PREFIX: &str = "response.";
+
 struct Component;
 
 // Implement the handler interface to receive messages from the remote WebSocket server
@@ -21,7 +24,7 @@ impl Guest for Component {
         if let Some(reply_to) = msg.reply_to {
             // Send a response back to the remote server
             let response = ConsumerMessage {
-                subject: format!("response.{}", msg.subject),
+                subject: format!("{}{}", RESPONSE_PREFIX, msg.subject),
                 body: msg.body.clone(),
                 reply_to: Some(reply_to),
             };

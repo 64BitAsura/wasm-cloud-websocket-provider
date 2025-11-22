@@ -186,13 +186,23 @@ Messages are JSON-encoded with the following structure:
 }
 ```
 
-Example:
+**Example without reply_to:**
 
 ```json
 {
     "subject": "test.echo",
     "body": "SGVsbG8gV29ybGQh",
     "reply_to": null
+}
+```
+
+**Example with reply_to (for targeted responses):**
+
+```json
+{
+    "subject": "test.request",
+    "body": "SGVsbG8gV29ybGQh",
+    "reply_to": "session-abc-123"
 }
 ```
 
