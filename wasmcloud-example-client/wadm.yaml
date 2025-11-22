@@ -1,0 +1,64 @@
+apiVersion: core.oam.dev/v1beta1
+kind: Application
+metadata:
+  name: websocket-client-example
+  annotations:
+    version: v0.1.0
+    description: "Example wasmCloud application using WebSocket messaging provider in CLIENT mode"
+spec:
+  components:
+    - name: client-component
+      type: component
+      properties:
+        # Path to the compiled WebAssembly component
+        # Build with: cd client-component && cargo build --target wasm32-wasip1 --release
+        image: file://./client-component/target/wasm32-wasip1/release/client_component.wasm
+      traits:
+        # Scale to 1 instance
+        - type: spreadscaler
+          properties:
+            instances: 1
+
+    - name: websocket-provider
+      type: capability
+      properties:
+        # NOTE: This provider is not yet published to a registry
+        # For local testing, you need to:
+        # 1. Build the provider: cargo build --release
+        # 2. Start it manually, OR
+        # 3. Package and register it with wasmCloud
+        # Once published, this would be something like:
+        # image: ghcr.io/64bitasura/websocket-provider:0.1.0
+        
+        # For now, this manifest is a template showing how to configure links
+        # See README.md for instructions on running the provider locally
+        image: file://../target/release/websocket-provider
+      traits:
+        # Link provider as target (for sending messages)
+        - type: link
+          properties:
+            target: client-component
+            namespace: wasmcloud
+            package: messaging
+            interfaces: [consumer]
+            target_config:
+              - name: websocket-client-consumer-config
+                properties:
+                  MODE: "client"
+                  URI: "ws://echo.websocket.org"
+                  ENABLE_SESSION_TRACKING: "true"
+                  CONNECT_TIMEOUT_SEC: "30"
+        
+        # Link provider as source (for receiving messages)
+        - type: link
+          properties:
+            target: client-component
+            namespace: wasmcloud
+            package: messaging
+            interfaces: [handler]
+            source_config:
+              - name: websocket-client-handler-config
+                properties:
+                  MODE: "client"
+                  URI: "ws://echo.websocket.org"
+                  ENABLE_SESSION_TRACKING: "true"

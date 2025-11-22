@@ -1,0 +1,17 @@
+# wasmCloud configuration for client component
+name = "client-component"
+language = "rust"
+type = "component"
+
+[component]
+# Claims configuration
+claims = ["wasmcloud:messaging"]
+
+# Build configuration
+build_command = "cargo build --target wasm32-wasip1 --release"
+build_artifact = "target/wasm32-wasip1/release/client_component.wasm"
+
+# Registry configuration (when ready to publish)
+[registry]
+# url = "localhost:5001"
+# push_insecure = true
