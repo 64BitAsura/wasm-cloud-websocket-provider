@@ -30,6 +30,9 @@ uuid = { version = "1.6", features = ["v4"] }
 wasmcloud-provider-sdk = "0.16"
 wit-bindgen = "0.34"
 
+[dev-dependencies]
+base64 = "0.22"
+
 [profile.release]
 opt-level = "z"
 lto = true
