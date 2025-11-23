@@ -186,9 +186,7 @@ async fn test_echo_server_message_formats() -> Result<()> {
 
     // Test JSON message
     let json_msg = r#"{"subject":"test","body":"dGVzdA==","reply_to":null}"#;
-    write
-        .send(Message::Text(json_msg.to_string()))
-        .await?;
+    write.send(Message::Text(json_msg.to_string())).await?;
 
     if let Ok(Some(Ok(msg))) = timeout(Duration::from_secs(2), read.next()).await {
         info!("Received JSON echo: {:?}", msg);
@@ -196,9 +194,7 @@ async fn test_echo_server_message_formats() -> Result<()> {
 
     // Test plain text message
     let plain_msg = "Hello, WebSocket!";
-    write
-        .send(Message::Text(plain_msg.to_string()))
-        .await?;
+    write.send(Message::Text(plain_msg.to_string())).await?;
 
     if let Ok(Some(Ok(msg))) = timeout(Duration::from_secs(2), read.next()).await {
         info!("Received plain text echo: {:?}", msg);
@@ -209,9 +205,7 @@ async fn test_echo_server_message_formats() -> Result<()> {
 
     // Test binary message
     let binary_data = vec![0x01, 0x02, 0x03, 0x04];
-    write
-        .send(Message::Binary(binary_data.clone()))
-        .await?;
+    write.send(Message::Binary(binary_data.clone())).await?;
 
     if let Ok(Some(Ok(msg))) = timeout(Duration::from_secs(2), read.next()).await {
         info!("Received binary echo: {:?}", msg);
