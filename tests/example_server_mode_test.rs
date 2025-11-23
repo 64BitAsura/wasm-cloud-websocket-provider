@@ -16,9 +16,9 @@ use tracing::info;
 /// Helper to start the server_mode example
 async fn start_server_mode_example() -> Result<(Child, u16)> {
     info!("Starting server_mode example...");
-    
+
     let mut child = Command::new("cargo")
-        .args(&["run", "--example", "server_mode"])
+        .args(["run", "--example", "server_mode"])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true)
@@ -33,17 +33,17 @@ async fn start_server_mode_example() -> Result<(Child, u16)> {
 
     // Wait for server to start and extract port
     let start_timeout = Duration::from_secs(60);
-    
+
     let found = Arc::new(AtomicBool::new(false));
     let found_clone = found.clone();
     let port_arc = Arc::new(Mutex::new(8080u16));
     let port_clone = port_arc.clone();
-    
+
     // Spawn task to read stderr
     let stderr_task = tokio::spawn(async move {
         while let Some(line) = stderr_reader.next_line().await.ok().flatten() {
             info!("Server stderr: {}", line);
-            
+
             // Look for the listening message
             if line.contains("WebSocket server listening on") {
                 // Extract port from line like "ws://127.0.0.1:8080/ws"
@@ -62,14 +62,14 @@ async fn start_server_mode_example() -> Result<(Child, u16)> {
             }
         }
     });
-    
+
     // Also check stdout
     let found_clone2 = found.clone();
     let port_clone2 = port_arc.clone();
     let stdout_task = tokio::spawn(async move {
         while let Some(line) = stdout_reader.next_line().await.ok().flatten() {
             info!("Server stdout: {}", line);
-            
+
             if line.contains("WebSocket server listening on") {
                 if let Some(port_str) = line.split(':').nth(2) {
                     if let Some(port_part) = port_str.split('/').next() {
@@ -86,7 +86,7 @@ async fn start_server_mode_example() -> Result<(Child, u16)> {
             }
         }
     });
-    
+
     // Wait for server to start
     match timeout(start_timeout, async {
         while !found.load(Ordering::SeqCst) {
@@ -100,11 +100,11 @@ async fn start_server_mode_example() -> Result<(Child, u16)> {
             info!("Server started on port {}", port);
             // Give it a moment to fully initialize
             sleep(Duration::from_millis(1000)).await;
-            
+
             // Clean up tasks
             stderr_task.abort();
             stdout_task.abort();
-            
+
             Ok((child, port))
         }
         Err(_) => {
@@ -126,11 +126,8 @@ async fn test_server_mode_example_with_ping_pong() -> Result<()> {
     // Connect WebSocket client
     let ws_url = format!("ws://127.0.0.1:{}/ws", port);
     info!("Connecting to {}", ws_url);
-    
-    let connect_result = timeout(
-        Duration::from_secs(5),
-        connect_async(&ws_url)
-    ).await;
+
+    let connect_result = timeout(Duration::from_secs(5), connect_async(&ws_url)).await;
 
     let (ws_stream, _) = match connect_result {
         Ok(Ok(result)) => result,
@@ -155,7 +152,9 @@ async fn test_server_mode_example_with_ping_pong() -> Result<()> {
     });
 
     info!("Sending ping message");
-    let _ = write.send(Message::Text(ping_msg.to_string())).await;
+    if let Err(e) = write.send(Message::Text(ping_msg.to_string())).await {
+        info!("Failed to send ping message (expected): {}", e);
+    }
     sleep(Duration::from_millis(500)).await;
 
     // Send pong message
@@ -166,7 +165,9 @@ async fn test_server_mode_example_with_ping_pong() -> Result<()> {
     });
 
     info!("Sending pong message");
-    let _ = write.send(Message::Text(pong_msg.to_string())).await;
+    if let Err(e) = write.send(Message::Text(pong_msg.to_string())).await {
+        info!("Failed to send pong message (expected): {}", e);
+    }
     sleep(Duration::from_millis(500)).await;
 
     // Send additional echo messages
@@ -178,7 +179,11 @@ async fn test_server_mode_example_with_ping_pong() -> Result<()> {
         });
 
         info!("Sending echo message {}", i);
-        if write.send(Message::Text(echo_msg.to_string())).await.is_err() {
+        if write
+            .send(Message::Text(echo_msg.to_string()))
+            .await
+            .is_err()
+        {
             info!("Send failed (expected - server might close connection)");
             break;
         }
@@ -187,11 +192,14 @@ async fn test_server_mode_example_with_ping_pong() -> Result<()> {
 
     // Close connection gracefully
     let _ = write.close().await;
-    
+
     // Clean up: kill the server process
     info!("Cleaning up server process...");
-    server_process.kill().await.context("Failed to kill server process")?;
-    
+    server_process
+        .kill()
+        .await
+        .context("Failed to kill server process")?;
+
     // Wait for process to exit
     let _ = timeout(Duration::from_secs(5), server_process.wait()).await;
 
