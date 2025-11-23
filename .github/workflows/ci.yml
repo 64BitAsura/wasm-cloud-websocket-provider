@@ -55,7 +55,7 @@ jobs:
       run: cargo test --verbose
     
     - name: Run example integration tests
-      run: cargo test --ignored --verbose --test example_server_mode_test --test example_client_mode_test
+      run: cargo test --verbose --test example_server_mode_test --test example_client_mode_test -- --ignored
     
     - name: Build release
       run: cargo build --release --verbose
